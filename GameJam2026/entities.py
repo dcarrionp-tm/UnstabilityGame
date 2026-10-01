@@ -112,28 +112,36 @@ class BonusPlatform:
 
 
 class FallingRock:
-    def __init__(self, x, trigger_x):
+    def __init__(self, x, trigger_x, warning_duration=0.75, fall_acceleration=1150, max_fall_speed=760):
         self.x = x
         self.trigger_x = trigger_x
+        self.warning_duration = warning_duration
+        self.fall_acceleration = fall_acceleration
+        self.max_fall_speed = max_fall_speed
         self.warning_timer = None
         self.y = -36.0
         self.velocity_y = 0.0
         self.landed = False
+        self.landed_this_frame = False
         self.fall_sound_played = False
 
     def update(self, dt, player):
+        self.landed_this_frame = False
         if self.warning_timer is None and player.centerx >= self.trigger_x:
-            self.warning_timer = 0.75
-        if self.warning_timer is None or self.landed:
+            self.warning_timer = self.warning_duration
+        if self.landed:
+            return
+        if self.warning_timer is None:
             return
         if self.warning_timer > 0:
             self.warning_timer = max(0.0, self.warning_timer - dt)
             return
-        self.velocity_y = min(760, self.velocity_y + 1150 * dt)
+        self.velocity_y = min(self.max_fall_speed, self.velocity_y + self.fall_acceleration * dt)
         self.y += self.velocity_y * dt
         if self.y >= GROUND_Y - 30:
             self.y = GROUND_Y - 30
             self.landed = True
+            self.landed_this_frame = True
 
     def draw(self, surface, camera_x, rock_sprite, warning_sprite):
         if self.warning_timer is None:
@@ -145,7 +153,7 @@ class FallingRock:
             surface.blit(rock_sprite, rock_sprite.get_rect(midtop=(screen_x, round(self.y))))
 
     def collides(self, player):
-        if self.warning_timer is None or self.warning_timer > 0 or self.landed:
+        if self.warning_timer is None or self.warning_timer > 0 or (self.landed and not self.landed_this_frame):
             return False
         rock_rect = pygame.Rect(round(self.x - 20), round(self.y), 40, 30)
         return player.colliderect(rock_rect)
@@ -167,25 +175,30 @@ class SpikeTrap:
                 (self.kind == "on_jump" and jumped)
                 or (self.kind == "on_land" and landed)
                 or (self.kind == "hidden" and crossed_trigger)
+                or (self.kind == "fake" and landed and player.bottom >= self.base_y - 2
+                    and player.right > self.x and player.left < self.x + self.count * 25)
             )
             if triggered:
                 self.activated_at = now
 
     def active(self, now):
+        if self.kind == "fake":
+            return False
         return self.kind == "static" or (self.activated_at is not None and now - self.activated_at > 0.28)
 
     def draw(self, surface, camera_x, now, sprite):
         if self.activated_at is None:
             return
         elapsed = now - self.activated_at
-        height = 25 if self.kind == "static" else int(25 * min(1.0, elapsed / 0.28))
+        rise_duration = 0.1 if self.kind == "fake" else 0.28
+        height = 25 if self.kind == "static" else int(25 * min(1.0, elapsed / rise_duration))
         if height <= 0:
             return
         rendered = pygame.transform.smoothscale(sprite, (self.count * 25, height + 12))
         surface.blit(rendered, (self.x - camera_x, self.base_y - rendered.get_height()))
 
     def collides(self, player, now, sprite):
-        if not self.active(now):
+        if self.kind == "fake" or not self.active(now):
             return False
         elapsed = now - self.activated_at
         height = 25 if self.kind == "static" else int(25 * min(1.0, elapsed / 0.28))

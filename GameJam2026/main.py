@@ -269,7 +269,8 @@ class Game:
             hazard.update(dt, self.player)
             if hazard.warning_timer is not None and hazard.warning_timer <= 0 and not getattr(hazard, "fall_sound_played", False):
                 hazard.fall_sound_played = True
-                fall_duration_ms = int(1000 * math.sqrt((2 * (500 - 30 - (-36.0))) / 1150.0))
+                fall_distance = 500 - 30 - (-36.0)
+                fall_duration_ms = int(1000 * math.sqrt((2 * fall_distance) / hazard.fall_acceleration))
                 self.play_sound("fall", maxtime=max(150, fall_duration_ms))
         previous_bottom = self.player.bottom
         self.velocity_y = min(MAX_FALL_SPEED, self.velocity_y + GRAVITY * dt)
@@ -326,8 +327,11 @@ class Game:
             self.die()
 
     def _update_progress(self):
-        fake_game_over_x = self.level.get("fake_game_over")
-        if fake_game_over_x is not None and not self.fake_game_over_triggered and self.player.centerx >= fake_game_over_x:
+        fake_spikes_popped = any(
+            trap.kind == "fake" and trap.activated_at is not None
+            for trap in self.traps
+        )
+        if self.level.get("fake_game_over") and fake_spikes_popped and not self.fake_game_over_triggered:
             self.fake_game_over_triggered = True
             self.fake_game_over_timer = 1.1
             self.play_sound("gameover")
