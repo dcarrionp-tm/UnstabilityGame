@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pygame
 
-from entities import FallingRock, Platform, SpikeTrap
+from entities import BonusPlatform, FallingRock, Platform, SpikeTrap
 from levels import LEVELS
 
 
@@ -11,13 +11,17 @@ WIDTH = 960
 HEIGHT = 600
 FPS = 60
 MOVE_SPEED = 245
+JUMP_VELOCITY = -570
+GRAVITY = 1450
+MAX_FALL_SPEED = 850
+JUMP_BUFFER_TIME = 0.12
+COYOTE_TIME = 0.08
 
 INK = (17, 22, 30)
 WHITE = (237, 242, 232)
 MUTED = (133, 151, 157)
 ACID = (220, 246, 94)
 CORAL = (255, 105, 91)
-TEAL = (77, 206, 185)
 
 
 class Game:
@@ -34,8 +38,6 @@ class Game:
         self.deaths = 0
         self.elapsed = 0.0
         self.level_index = 0
-        self.checkpoint_index = 0
-        self.camera_x = 0
         self.load_level()
         self.reset_player()
 
@@ -70,6 +72,10 @@ class Game:
             (96, 32),
         )
         crumble_platform.fill((32, 20, 0), special_flags=pygame.BLEND_RGB_ADD)
+        bonus_sprite = pygame.transform.smoothscale(
+            load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Bonus.png"),
+            (64, 48),
+        )
         return {
             "background_far": pygame.transform.scale(load_image(background / "Plague_Town_2D_Platformer_Tileset_Background - Layer 00.png"), (WIDTH, HEIGHT)),
             "background_near": pygame.transform.scale(load_image(background / "Plague_Town_2D_Platformer_Tileset_Background - Layer 01.png"), (WIDTH, HEIGHT)),
@@ -81,8 +87,13 @@ class Game:
                 "crumble": crumble_platform,
                 "fallthrough_sign": pygame.transform.smoothscale(load_image(levels / "Environment" / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 04.png"), (48, 60)),
             },
+            "bonus": bonus_sprite,
+            "bonus_outcomes": {
+                "safe": pygame.transform.smoothscale(solid_platform, (64, 48)),
+                "false": pygame.transform.smoothscale(fake_platform, (64, 48)),
+                "temporary": pygame.transform.smoothscale(crumble_platform, (64, 48)),
+            },
             "spike": load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Spike.png"),
-            "checkpoint": pygame.transform.smoothscale(load_image(levels / "Environment" / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 01.png"), (44, 64)),
             "falling_rock": pygame.transform.smoothscale(load_image(environment / "Plague_Town_2D_Platformer_Tileset_Environment - Rock 01.png"), (40, 30)),
             "fall_warning": pygame.transform.smoothscale(load_image(environment / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 05.png"), (38, 52)),
             "decorations": {
@@ -104,14 +115,14 @@ class Game:
         self.level = LEVELS[self.level_index]
         self.world_width = self.level["width"]
         self.platforms = [Platform(*definition) for definition in self.level["platforms"]]
+        self.bonus_platforms = BonusPlatform.create_all(self.level.get("bonus_platforms", []))
         self.traps = [SpikeTrap(**definition) for definition in self.level["traps"]]
         self.falling_rocks = [FallingRock(**definition) for definition in self.level.get("falling_rocks", [])]
-        self.checkpoints = self.level["checkpoints"]
         self.fake_game_over_timer = 0.0
         self.fake_game_over_triggered = False
 
     def reset_player(self):
-        spawn_x = self.level["spawn"] if self.checkpoint_index == 0 else self.checkpoints[self.checkpoint_index - 1]
+        spawn_x = self.level["spawn"]
         self.player = pygame.Rect(spawn_x, 500 - 48, 28, 42)
         self.facing = 1
         self.moving = False
@@ -131,7 +142,6 @@ class Game:
             self.state = "won"
             return
         self.level_index += 1
-        self.checkpoint_index = 0
         self.elapsed = 0.0
         self.load_level()
         self.reset_player()
@@ -160,7 +170,17 @@ class Game:
             self.fake_game_over_timer = max(0.0, self.fake_game_over_timer - dt)
             return
 
+        self._update_playing(dt, keys)
+
+    def _update_playing(self, dt, keys):
         self.elapsed += dt
+        jumped = self._update_player_input(dt, keys)
+        landed = self._update_world(dt)
+        self._update_hazards(jumped, landed)
+        self._update_progress()
+        self._update_camera()
+
+    def _update_player_input(self, dt, keys):
         move = int(keys[pygame.K_RIGHT] or keys[pygame.K_d]) - int(keys[pygame.K_LEFT] or keys[pygame.K_a])
         self.moving = move != 0
         if move:
@@ -170,27 +190,31 @@ class Game:
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]
         jump_pressed = jump_held and not self.jump_was_held
         if jump_pressed:
-            self.jump_buffer_timer = 0.12
+            self.jump_buffer_timer = JUMP_BUFFER_TIME
         else:
             self.jump_buffer_timer = max(0.0, self.jump_buffer_timer - dt)
         if self.on_ground:
-            self.coyote_timer = 0.08
+            self.coyote_timer = COYOTE_TIME
         else:
             self.coyote_timer = max(0.0, self.coyote_timer - dt)
         jumped = self.jump_buffer_timer > 0 and (self.on_ground or self.coyote_timer > 0)
         if jumped:
-            self.velocity_y = -570
+            self.velocity_y = JUMP_VELOCITY
             self.on_ground = False
             self.jump_buffer_timer = 0.0
             self.coyote_timer = 0.0
         self.jump_was_held = jump_held
+        return jumped
 
+    def _update_world(self, dt):
         for platform in self.platforms:
+            platform.update(dt)
+        for platform in self.bonus_platforms:
             platform.update(dt)
         for hazard in self.falling_rocks:
             hazard.update(dt, self.player)
         previous_bottom = self.player.bottom
-        self.velocity_y = min(850, self.velocity_y + 1450 * dt)
+        self.velocity_y = min(MAX_FALL_SPEED, self.velocity_y + GRAVITY * dt)
         self.player.y += round(self.velocity_y * dt)
         self.on_ground = False
         landed = False
@@ -208,7 +232,31 @@ class Game:
                     platform.timer = 0.001
                 if platform.kind == "moving":
                     self.player.x += platform.rect.x - platform.previous_x
+        for platform in self.bonus_platforms:
+            if platform.gone:
+                continue
+            overlaps_horizontally = self.player.right > platform.rect.left and self.player.left < platform.rect.right
+            reached_platform_top = previous_bottom <= platform.rect.top + 8 and self.player.bottom >= platform.rect.top
+            if not overlaps_horizontally or self.velocity_y < 0 or not reached_platform_top:
+                continue
+            outcome = platform.land()
+            if outcome == "spikes":
+                trap = SpikeTrap(
+                    platform.rect.left,
+                    count=max(2, round(platform.rect.width / 25)),
+                    kind="on_jump",
+                    base_y=platform.rect.top,
+                )
+                trap.activated_at = self.elapsed
+                self.traps.append(trap)
+                continue
+            self.player.bottom = platform.rect.top
+            self.velocity_y = 0
+            self.on_ground = True
+            landed = True
+        return landed
 
+    def _update_hazards(self, jumped, landed):
         for trap in self.traps:
             trap.update(self.elapsed, self.player, jumped, landed)
             if trap.collides(self.player, self.elapsed, self.assets["spike"]):
@@ -219,14 +267,15 @@ class Game:
         if self.player.top > HEIGHT + 50:
             self.die()
 
-        while self.checkpoint_index < len(self.checkpoints) and self.player.centerx > self.checkpoints[self.checkpoint_index]:
-            self.checkpoint_index += 1
+    def _update_progress(self):
         fake_game_over_x = self.level.get("fake_game_over")
         if fake_game_over_x is not None and not self.fake_game_over_triggered and self.player.centerx >= fake_game_over_x:
             self.fake_game_over_triggered = True
             self.fake_game_over_timer = 1.1
         if self.player.centerx >= self.level["exit"]:
             self.advance_level()
+
+    def _update_camera(self):
         target_camera = self.player.centerx - WIDTH * 0.38
         self.camera_x = max(0, min(self.world_width - WIDTH, int(target_camera)))
 
@@ -265,6 +314,8 @@ class Game:
         self.draw_background()
         for platform in self.platforms:
             platform.draw(self.screen, self.camera_x, self.assets["platforms"])
+        for platform in self.bonus_platforms:
+            platform.draw(self.screen, self.camera_x, self.assets)
         for x in range(0, WIDTH, self.assets["ground"].get_width()):
             self.screen.blit(self.assets["ground"], (x, 522), (0, 0, min(self.assets["ground"].get_width(), WIDTH - x), HEIGHT - 522))
         for decoration, world_x in self.level.get("decorations", []):
@@ -285,14 +336,6 @@ class Game:
             trap.draw(self.screen, self.camera_x, self.elapsed, self.assets["spike"])
         for hazard in self.falling_rocks:
             hazard.draw(self.screen, self.camera_x, self.assets["falling_rock"], self.assets["fall_warning"])
-
-        for index, checkpoint in enumerate(self.checkpoints):
-            x = checkpoint - self.camera_x
-            if -20 < x < WIDTH + 20:
-                marker = self.assets["checkpoint"]
-                self.screen.blit(marker, marker.get_rect(midbottom=(x, 500)))
-                if self.checkpoint_index > index:
-                    pygame.draw.circle(self.screen, ACID, (x, 438), 4)
 
         goal_x = self.level["exit"] - 20 - self.camera_x
         if -60 < goal_x < WIDTH + 60:
@@ -338,7 +381,6 @@ class Game:
                     elif event.key == pygame.K_r and self.state == "won":
                         self.deaths = 0
                         self.level_index = 0
-                        self.checkpoint_index = 0
                         self.elapsed = 0
                         self.reset_level()
                         self.state = "title"
@@ -351,19 +393,3 @@ class Game:
 
 if __name__ == "__main__":
     Game().run()
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/

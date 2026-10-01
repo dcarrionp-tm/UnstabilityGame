@@ -24,7 +24,6 @@ LEVELS = [
             ("headstone", 115), ("bird", 265), ("fence", 370), ("rock", 555),
             ("headstone", 1165), ("bird", 1460), ("fence", 1685), ("rock", 1860),
         ],
-        "checkpoints": [805, 1450],
     },
     {
         "name": "NOTHING IS STATIONARY",
@@ -52,7 +51,6 @@ LEVELS = [
             ("bird", 135), ("rock", 360), ("headstone", 480), ("fence", 790),
             ("rock", 1080), ("headstone", 1395), ("bird", 1850), ("rock", 1990),
         ],
-        "checkpoints": [1080, 1710],
     },
     {
         "name": "THE EXIT IS A LIAR",
@@ -74,6 +72,12 @@ LEVELS = [
             {"x": 1060, "count": 5, "kind": "hidden", "trigger_x": 980},
             {"x": 1740, "count": 4, "kind": "static"},
         ],
+        "bonus_platforms": [
+            {"x": 275, "y": 430, "outcome": "random"},
+            {"x": 590, "y": 430, "outcome": "random"},
+            {"x": 925, "y": 430, "outcome": "random"},
+            {"x": 1260, "y": 430, "outcome": "random"},
+        ],
         "falling_rocks": [
             {"x": 775, "trigger_x": 680}, {"x": 1150, "trigger_x": 1055},
             {"x": 1880, "trigger_x": 1785},
@@ -83,6 +87,5 @@ LEVELS = [
             ("headstone", 170), ("rock", 520), ("bird", 760), ("fence", 1030),
             ("headstone", 1370), ("rock", 1540), ("fence", 1705), ("bird", 2050),
         ],
-        "checkpoints": [1030, 1705],
     },
 ]

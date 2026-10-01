@@ -1,3 +1,5 @@
+import random
+
 import pygame
 
 
@@ -22,7 +24,6 @@ class Platform:
         self.previous_x = x
 
     def update(self, dt):
-        self.previous_x = self.rect.x
         if self.kind == "crumble" and self.timer > 0:
             self.timer += dt
             if self.timer >= 0.72:
@@ -49,6 +50,65 @@ class Platform:
         if self.kind == "fake":
             sign = sprites["fallthrough_sign"]
             surface.blit(sign, sign.get_rect(midbottom=(rect.centerx, rect.top - 2)))
+
+
+class BonusPlatform:
+    OUTCOMES = ("safe", "false", "spikes", "temporary")
+
+    def __init__(self, x, y, outcome, width=64):
+        self.rect = pygame.Rect(x, y, width, 48)
+        self.outcome = outcome
+        self.revealed = False
+        self.timer = 0.0
+        self.gone = False
+
+    @classmethod
+    def create_all(cls, definitions):
+        outcomes = list(cls.OUTCOMES)
+        random.shuffle(outcomes)
+        previous_outcome = None
+        platforms = []
+
+        for definition in definitions:
+            config = definition.copy()
+            if config["outcome"] == "random":
+                if not outcomes:
+                    outcomes = list(cls.OUTCOMES)
+                    random.shuffle(outcomes)
+                    if len(outcomes) > 1 and outcomes[-1] == previous_outcome:
+                        outcomes[0], outcomes[-1] = outcomes[-1], outcomes[0]
+                config["outcome"] = outcomes.pop()
+                previous_outcome = config["outcome"]
+            platforms.append(cls(**config))
+
+        return platforms
+
+    def land(self):
+        if self.revealed:
+            return None
+        self.revealed = True
+        if self.outcome == "spikes":
+            self.gone = True
+        elif self.outcome in ("false", "temporary"):
+            self.timer = 0.001
+        return self.outcome
+
+    def update(self, dt):
+        if self.timer <= 0:
+            return
+        self.timer += dt
+        duration = 0.18 if self.outcome == "false" else 0.72
+        if self.timer >= duration:
+            self.gone = True
+
+    def draw(self, surface, camera_x, sprites):
+        if self.gone:
+            return
+        if not self.revealed:
+            texture = sprites["bonus"]
+        else:
+            texture = sprites["bonus_outcomes"][self.outcome]
+        surface.blit(texture, (self.rect.x - camera_x, self.rect.y))
 
 
 class FallingRock:
@@ -91,11 +151,12 @@ class FallingRock:
 
 
 class SpikeTrap:
-    def __init__(self, x, count=4, kind="on_jump", trigger_x=None):
+    def __init__(self, x, count=4, kind="on_jump", trigger_x=None, base_y=GROUND_Y):
         self.x = x
         self.count = count
         self.kind = kind
         self.trigger_x = trigger_x
+        self.base_y = base_y
         self.activated_at = 0.0 if kind == "static" else None
 
     def update(self, now, player, jumped=False, landed=False):
@@ -120,7 +181,7 @@ class SpikeTrap:
         if height <= 0:
             return
         rendered = pygame.transform.smoothscale(sprite, (self.count * 25, height + 12))
-        surface.blit(rendered, (self.x - camera_x, GROUND_Y - rendered.get_height()))
+        surface.blit(rendered, (self.x - camera_x, self.base_y - rendered.get_height()))
 
     def collides(self, player, now, sprite):
         if not self.active(now):
@@ -140,7 +201,7 @@ class SpikeTrap:
             spike_surface.blit(rendered, (0, 0), pygame.Rect(0, 0, width, spike_height))
             self._hit_masks[key] = pygame.mask.from_surface(spike_surface)
         hit_mask = self._hit_masks[key]
-        spike_rect = pygame.Rect(self.x, GROUND_Y - rendered.get_height(), width, spike_height)
+        spike_rect = pygame.Rect(self.x, self.base_y - rendered.get_height(), width, spike_height)
         player_mask = pygame.mask.Mask(player.size, fill=True)
         offset = player.left - spike_rect.left, player.top - spike_rect.top
         return hit_mask.overlap(player_mask, offset) is not None
