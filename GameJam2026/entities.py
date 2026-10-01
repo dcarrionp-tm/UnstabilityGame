@@ -22,6 +22,7 @@ class Platform:
         self.previous_x = x
 
     def update(self, dt):
+        self.previous_x = self.rect.x
         if self.kind == "crumble" and self.timer > 0:
             self.timer += dt
             if self.timer >= 0.72:
@@ -36,22 +37,57 @@ class Platform:
                 self.rect.x = self.start_x
                 self.direction = 1
 
-    def draw(self, surface, camera_x):
+    def draw(self, surface, camera_x, sprites):
         if self.gone:
             return
         rect = self.rect.move(-camera_x, 0)
-        color = TEAL if self.kind == "solid" else ACID
-        if self.kind == "moving":
-            color = (105, 179, 222)
-        elif self.kind == "crumble":
-            color = CORAL if self.timer > 0 else (215, 170, 96)
-        elif self.kind == "fake":
-            color = (118, 128, 130)
-        pygame.draw.rect(surface, color, rect, border_radius=3)
-        pygame.draw.line(surface, WHITE, (rect.left + 4, rect.top + 2), (rect.right - 4, rect.top + 2), 2)
-        if self.kind in ("crumble", "fake"):
-            for offset in range(10, rect.w, 24):
-                pygame.draw.line(surface, INK, (rect.x + offset, rect.y + 5), (rect.x + offset - 5, rect.bottom - 3), 2)
+        texture = sprites[self.kind]
+        for offset in range(0, rect.w, texture.get_width()):
+            tile_width = min(texture.get_width(), rect.w - offset)
+            area = pygame.Rect(0, 0, tile_width, texture.get_height())
+            surface.blit(texture, (rect.x + offset, rect.y - 8), area)
+        if self.kind == "fake":
+            sign = sprites["fallthrough_sign"]
+            surface.blit(sign, sign.get_rect(midbottom=(rect.centerx, rect.top - 2)))
+
+
+class FallingRock:
+    def __init__(self, x, trigger_x):
+        self.x = x
+        self.trigger_x = trigger_x
+        self.warning_timer = None
+        self.y = -36.0
+        self.velocity_y = 0.0
+        self.landed = False
+
+    def update(self, dt, player):
+        if self.warning_timer is None and player.centerx >= self.trigger_x:
+            self.warning_timer = 0.75
+        if self.warning_timer is None or self.landed:
+            return
+        if self.warning_timer > 0:
+            self.warning_timer = max(0.0, self.warning_timer - dt)
+            return
+        self.velocity_y = min(760, self.velocity_y + 1150 * dt)
+        self.y += self.velocity_y * dt
+        if self.y >= GROUND_Y - 30:
+            self.y = GROUND_Y - 30
+            self.landed = True
+
+    def draw(self, surface, camera_x, rock_sprite, warning_sprite):
+        if self.warning_timer is None:
+            return
+        screen_x = self.x - camera_x
+        if self.warning_timer > 0:
+            surface.blit(warning_sprite, warning_sprite.get_rect(midbottom=(screen_x, GROUND_Y - 8)))
+        else:
+            surface.blit(rock_sprite, rock_sprite.get_rect(midtop=(screen_x, round(self.y))))
+
+    def collides(self, player):
+        if self.warning_timer is None or self.warning_timer > 0 or self.landed:
+            return False
+        rock_rect = pygame.Rect(round(self.x - 20), round(self.y), 40, 30)
+        return player.colliderect(rock_rect)
 
 
 class SpikeTrap:
@@ -76,18 +112,35 @@ class SpikeTrap:
     def active(self, now):
         return self.kind == "static" or (self.activated_at is not None and now - self.activated_at > 0.28)
 
-    def draw(self, surface, camera_x, now):
+    def draw(self, surface, camera_x, now, sprite):
         if self.activated_at is None:
             return
         elapsed = now - self.activated_at
         height = 25 if self.kind == "static" else int(25 * min(1.0, elapsed / 0.28))
-        color = CORAL if self.active(now) else (255, 181, 96)
-        for index in range(self.count):
-            x = self.x + index * 25 - camera_x
-            pygame.draw.polygon(surface, color, [(x, GROUND_Y), (x + 12, GROUND_Y - height), (x + 24, GROUND_Y)])
+        if height <= 0:
+            return
+        rendered = pygame.transform.smoothscale(sprite, (self.count * 25, height + 12))
+        surface.blit(rendered, (self.x - camera_x, GROUND_Y - rendered.get_height()))
 
-    def collides(self, player, now):
+    def collides(self, player, now, sprite):
         if not self.active(now):
             return False
-        hitbox = pygame.Rect(round(self.x), GROUND_Y - 25, self.count * 25, 25)
-        return player.colliderect(hitbox)
+        elapsed = now - self.activated_at
+        height = 25 if self.kind == "static" else int(25 * min(1.0, elapsed / 0.28))
+        if height <= 0:
+            return False
+        width = self.count * 25
+        rendered = pygame.transform.smoothscale(sprite, (width, height + 12))
+        spike_height = max(1, round(rendered.get_height() * 0.72))
+        key = (width, spike_height)
+        if not hasattr(self, "_hit_masks"):
+            self._hit_masks = {}
+        if key not in self._hit_masks:
+            spike_surface = pygame.Surface((width, spike_height), pygame.SRCALPHA)
+            spike_surface.blit(rendered, (0, 0), pygame.Rect(0, 0, width, spike_height))
+            self._hit_masks[key] = pygame.mask.from_surface(spike_surface)
+        hit_mask = self._hit_masks[key]
+        spike_rect = pygame.Rect(self.x, GROUND_Y - rendered.get_height(), width, spike_height)
+        player_mask = pygame.mask.Mask(player.size, fill=True)
+        offset = player.left - spike_rect.left, player.top - spike_rect.top
+        return hit_mask.overlap(player_mask, offset) is not None

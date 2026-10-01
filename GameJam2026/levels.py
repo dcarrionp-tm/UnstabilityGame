@@ -13,8 +13,16 @@ LEVELS = [
         ],
         "traps": [
             {"x": 445, "count": 4, "kind": "on_jump"},
-            {"x": 650, "count": 4, "kind": "hidden", "trigger_x": 580},
+            {"x": 1060, "count": 4, "kind": "hidden", "trigger_x": 970},
             {"x": 1225, "count": 4, "kind": "static"},
+        ],
+        "falling_rocks": [
+            {"x": 930, "trigger_x": 835}, {"x": 1320, "trigger_x": 1225},
+        ],
+        "fake_game_over": 1035,
+        "decorations": [
+            ("headstone", 115), ("bird", 265), ("fence", 370), ("rock", 555),
+            ("headstone", 1165), ("bird", 1460), ("fence", 1685), ("rock", 1860),
         ],
         "checkpoints": [805, 1450],
     },
@@ -34,6 +42,15 @@ LEVELS = [
         "traps": [
             {"x": 805, "count": 5, "kind": "hidden", "trigger_x": 740},
             {"x": 1450, "count": 4, "kind": "on_land"},
+        ],
+        "falling_rocks": [
+            {"x": 875, "trigger_x": 780}, {"x": 1220, "trigger_x": 1125},
+            {"x": 1840, "trigger_x": 1745},
+        ],
+        "fake_game_over": 1330,
+        "decorations": [
+            ("bird", 135), ("rock", 360), ("headstone", 480), ("fence", 790),
+            ("rock", 1080), ("headstone", 1395), ("bird", 1850), ("rock", 1990),
         ],
         "checkpoints": [1080, 1710],
     },
@@ -56,6 +73,15 @@ LEVELS = [
             {"x": 390, "count": 4, "kind": "on_jump"},
             {"x": 1060, "count": 5, "kind": "hidden", "trigger_x": 980},
             {"x": 1740, "count": 4, "kind": "static"},
+        ],
+        "falling_rocks": [
+            {"x": 775, "trigger_x": 680}, {"x": 1150, "trigger_x": 1055},
+            {"x": 1880, "trigger_x": 1785},
+        ],
+        "fake_game_over": 875,
+        "decorations": [
+            ("headstone", 170), ("rock", 520), ("bird", 760), ("fence", 1030),
+            ("headstone", 1370), ("rock", 1540), ("fence", 1705), ("bird", 2050),
         ],
         "checkpoints": [1030, 1705],
     },

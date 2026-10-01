@@ -1,8 +1,9 @@
 import sys
+from pathlib import Path
 
 import pygame
 
-from entities import Platform, SpikeTrap
+from entities import FallingRock, Platform, SpikeTrap
 from levels import LEVELS
 
 
@@ -10,17 +11,13 @@ WIDTH = 960
 HEIGHT = 600
 FPS = 60
 MOVE_SPEED = 245
-JUMP_VELOCITY = -570
-GRAVITY = 1450
-MAX_FALL_SPEED = 850
-JUMP_BUFFER_TIME = 0.12
-COYOTE_TIME = 0.08
 
 INK = (17, 22, 30)
 WHITE = (237, 242, 232)
 MUTED = (133, 151, 157)
 ACID = (220, 246, 94)
 CORAL = (255, 105, 91)
+TEAL = (77, 206, 185)
 
 
 class Game:
@@ -29,6 +26,7 @@ class Game:
         pygame.display.set_caption("FAULTLINE // an unstable platformer")
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
+        self.assets = self.load_assets()
         self.font = pygame.font.SysFont("consolas", 18, bold=True)
         self.big_font = pygame.font.SysFont("consolas", 56, bold=True)
         self.small_font = pygame.font.SysFont("consolas", 14)
@@ -37,19 +35,86 @@ class Game:
         self.elapsed = 0.0
         self.level_index = 0
         self.checkpoint_index = 0
+        self.camera_x = 0
         self.load_level()
         self.reset_player()
+
+    def load_assets(self):
+        asset_root = Path(__file__).resolve().parent / "Assets"
+        levels = asset_root / "Level_Sprites" / "PNG"
+        character_frames = asset_root / "Character_Sprites" / "PNG" / "PNG Sequences"
+
+        def load_image(path):
+            return pygame.image.load(str(path)).convert_alpha()
+
+        def load_sequence(folder, size=(84, 84)):
+            frames = sorted((character_frames / folder).glob("*.png"))
+            return [pygame.transform.smoothscale(load_image(frame), size) for frame in frames]
+
+        def load_decoration(filename, size):
+            sprite = pygame.transform.smoothscale(load_image(environment / filename), size)
+            sprite.set_alpha(155)
+            return sprite
+
+        background = levels / "Background"
+        platformer = levels / "Platfromer"
+        environment = levels / "Environment"
+        ground_tile = load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Ground 02.png")
+        solid_platform = pygame.transform.smoothscale(ground_tile, (96, 32))
+        fake_platform = solid_platform.copy()
+        tint = pygame.Surface(fake_platform.get_size(), pygame.SRCALPHA)
+        tint.fill((235, 195, 145, 34))
+        fake_platform.blit(tint, (0, 0))
+        crumble_platform = pygame.transform.smoothscale(
+            load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Bridge Part 02.png"),
+            (96, 32),
+        )
+        crumble_platform.fill((32, 20, 0), special_flags=pygame.BLEND_RGB_ADD)
+        return {
+            "background_far": pygame.transform.scale(load_image(background / "Plague_Town_2D_Platformer_Tileset_Background - Layer 00.png"), (WIDTH, HEIGHT)),
+            "background_near": pygame.transform.scale(load_image(background / "Plague_Town_2D_Platformer_Tileset_Background - Layer 01.png"), (WIDTH, HEIGHT)),
+            "ground": pygame.transform.smoothscale(ground_tile, (96, 96)),
+            "platforms": {
+                "solid": solid_platform,
+                "fake": fake_platform,
+                "moving": pygame.transform.smoothscale(load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Bridge Part 01.png"), (96, 32)),
+                "crumble": crumble_platform,
+                "fallthrough_sign": pygame.transform.smoothscale(load_image(levels / "Environment" / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 04.png"), (48, 60)),
+            },
+            "spike": load_image(platformer / "Plague_Town_2D_Platformer_Tileset_Platformer - Spike.png"),
+            "checkpoint": pygame.transform.smoothscale(load_image(levels / "Environment" / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 01.png"), (44, 64)),
+            "falling_rock": pygame.transform.smoothscale(load_image(environment / "Plague_Town_2D_Platformer_Tileset_Environment - Rock 01.png"), (40, 30)),
+            "fall_warning": pygame.transform.smoothscale(load_image(environment / "Plague_Town_2D_Platformer_Tileset_Environment - Signpost 05.png"), (38, 52)),
+            "decorations": {
+                "rock": load_decoration("Plague_Town_2D_Platformer_Tileset_Environment - Rock 02.png", (38, 25)),
+                "bird": load_decoration("Plague_Town_2D_Platformer_Tileset_Environment - Bird.png", (28, 28)),
+                "headstone": load_decoration("Plague_Town_2D_Platformer_Tileset_Environment - Headstone.png", (34, 48)),
+                "fence": load_decoration("Plague_Town_2D_Platformer_Tileset_Environment - Fence 01.png", (68, 39)),
+            },
+            "goal": pygame.transform.smoothscale(load_image(levels / "Collectable Object" / "Plague_Town_2D_Platformer_Tileset_Collectable Object - Golden Key.png"), (56, 56)),
+            "player": {
+                "idle": load_sequence("Idle"),
+                "run": load_sequence("Running"),
+                "jump": load_sequence("Jump Loop"),
+                "hurt": load_sequence("Hurt"),
+            },
+        }
 
     def load_level(self):
         self.level = LEVELS[self.level_index]
         self.world_width = self.level["width"]
         self.platforms = [Platform(*definition) for definition in self.level["platforms"]]
         self.traps = [SpikeTrap(**definition) for definition in self.level["traps"]]
+        self.falling_rocks = [FallingRock(**definition) for definition in self.level.get("falling_rocks", [])]
         self.checkpoints = self.level["checkpoints"]
+        self.fake_game_over_timer = 0.0
+        self.fake_game_over_triggered = False
 
     def reset_player(self):
         spawn_x = self.level["spawn"] if self.checkpoint_index == 0 else self.checkpoints[self.checkpoint_index - 1]
         self.player = pygame.Rect(spawn_x, 500 - 48, 28, 42)
+        self.facing = 1
+        self.moving = False
         self.velocity_y = 0.0
         self.on_ground = False
         self.jump_was_held = False
@@ -91,57 +156,50 @@ class Game:
             return
         if self.state == "won":
             return
-
-        self._update_playing(dt, keys)
-
-    def _update_playing(self, dt, keys):
-        self.elapsed += dt
-        self._move_horizontally(dt, keys)
-        jumped = self._handle_jump(dt, keys)
-        landed = self._move_vertically(dt)
-        self._update_traps(jumped, landed)
-        if self.state != "playing":
+        if self.fake_game_over_timer > 0:
+            self.fake_game_over_timer = max(0.0, self.fake_game_over_timer - dt)
             return
-        self._update_progress()
-        self._update_camera()
 
-    def _move_horizontally(self, dt, keys):
+        self.elapsed += dt
         move = int(keys[pygame.K_RIGHT] or keys[pygame.K_d]) - int(keys[pygame.K_LEFT] or keys[pygame.K_a])
+        self.moving = move != 0
+        if move:
+            self.facing = move
         self.player.x += round(move * MOVE_SPEED * dt)
         self.player.x = max(0, min(self.world_width - self.player.width, self.player.x))
-
-    def _handle_jump(self, dt, keys):
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]
         jump_pressed = jump_held and not self.jump_was_held
         if jump_pressed:
-            self.jump_buffer_timer = JUMP_BUFFER_TIME
+            self.jump_buffer_timer = 0.12
         else:
             self.jump_buffer_timer = max(0.0, self.jump_buffer_timer - dt)
         if self.on_ground:
-            self.coyote_timer = COYOTE_TIME
+            self.coyote_timer = 0.08
         else:
             self.coyote_timer = max(0.0, self.coyote_timer - dt)
         jumped = self.jump_buffer_timer > 0 and (self.on_ground or self.coyote_timer > 0)
         if jumped:
-            self.velocity_y = JUMP_VELOCITY
+            self.velocity_y = -570
             self.on_ground = False
             self.jump_buffer_timer = 0.0
             self.coyote_timer = 0.0
         self.jump_was_held = jump_held
-        return jumped
 
-    def _move_vertically(self, dt):
         for platform in self.platforms:
             platform.update(dt)
+        for hazard in self.falling_rocks:
+            hazard.update(dt, self.player)
         previous_bottom = self.player.bottom
-        self.velocity_y = min(MAX_FALL_SPEED, self.velocity_y + GRAVITY * dt)
+        self.velocity_y = min(850, self.velocity_y + 1450 * dt)
         self.player.y += round(self.velocity_y * dt)
         self.on_ground = False
         landed = False
         for platform in self.platforms:
             if platform.gone or platform.kind == "fake":
                 continue
-            if self.player.colliderect(platform.rect) and self.velocity_y >= 0 and previous_bottom <= platform.rect.top + 8:
+            overlaps_horizontally = self.player.right > platform.rect.left and self.player.left < platform.rect.right
+            reached_platform_top = previous_bottom <= platform.rect.top + 8 and self.player.bottom >= platform.rect.top
+            if overlaps_horizontally and self.velocity_y >= 0 and reached_platform_top:
                 self.player.bottom = platform.rect.top
                 self.velocity_y = 0
                 self.on_ground = True
@@ -150,38 +208,35 @@ class Game:
                     platform.timer = 0.001
                 if platform.kind == "moving":
                     self.player.x += platform.rect.x - platform.previous_x
-        return landed
 
-    def _update_traps(self, jumped, landed):
         for trap in self.traps:
             trap.update(self.elapsed, self.player, jumped, landed)
-            if trap.collides(self.player, self.elapsed):
+            if trap.collides(self.player, self.elapsed, self.assets["spike"]):
+                self.die()
+        for hazard in self.falling_rocks:
+            if hazard.collides(self.player):
                 self.die()
         if self.player.top > HEIGHT + 50:
             self.die()
 
-    def _update_progress(self):
         while self.checkpoint_index < len(self.checkpoints) and self.player.centerx > self.checkpoints[self.checkpoint_index]:
             self.checkpoint_index += 1
+        fake_game_over_x = self.level.get("fake_game_over")
+        if fake_game_over_x is not None and not self.fake_game_over_triggered and self.player.centerx >= fake_game_over_x:
+            self.fake_game_over_triggered = True
+            self.fake_game_over_timer = 1.1
         if self.player.centerx >= self.level["exit"]:
             self.advance_level()
-
-    def _update_camera(self):
         target_camera = self.player.centerx - WIDTH * 0.38
         self.camera_x = max(0, min(self.world_width - WIDTH, int(target_camera)))
 
     def draw_background(self):
         self.screen.fill(INK)
-        for y in range(0, HEIGHT, 4):
-            shade = int(24 + y * 0.025)
-            pygame.draw.line(self.screen, (shade, shade + 8, shade + 12), (0, y), (WIDTH, y))
-        drift = int((self.camera_x * 0.22) % 80)
-        for x in range(-80, WIDTH + 80, 80):
-            pygame.draw.line(self.screen, (37, 47, 54), (x - drift, 0), (x - drift + 180, HEIGHT), 1)
-        for index in range(7):
-            x = (index * 191 - self.camera_x // 3) % (WIDTH + 100)
-            y = 105 + (index * 67) % 260
-            pygame.draw.circle(self.screen, (54, 67, 67), (x, y), 2)
+        for key, parallax, vertical_offset in (("background_far", 0.16, 0), ("background_near", 0.62, 54)):
+            image = self.assets[key]
+            offset = int(self.camera_x * parallax) % WIDTH
+            self.screen.blit(image, (-offset, vertical_offset))
+            self.screen.blit(image, (WIDTH - offset, vertical_offset))
 
     def draw_hud(self):
         self.screen.blit(self.font.render(f"FAULTLINE  /  {self.level_index + 1:02d} {self.level['name']}", True, WHITE), (24, 20))
@@ -209,28 +264,56 @@ class Game:
     def draw(self):
         self.draw_background()
         for platform in self.platforms:
-            platform.draw(self.screen, self.camera_x)
-        pygame.draw.rect(self.screen, (43, 50, 52), (0, 522, WIDTH, HEIGHT - 522))
+            platform.draw(self.screen, self.camera_x, self.assets["platforms"])
+        for x in range(0, WIDTH, self.assets["ground"].get_width()):
+            self.screen.blit(self.assets["ground"], (x, 522), (0, 0, min(self.assets["ground"].get_width(), WIDTH - x), HEIGHT - 522))
+        for decoration, world_x in self.level.get("decorations", []):
+            supports = [
+                platform for platform in self.platforms
+                if platform.kind in ("solid", "crumble")
+                and not platform.gone
+                and platform.rect.left <= world_x < platform.rect.right
+            ]
+            if not supports:
+                continue
+            support = min(supports, key=lambda platform: platform.rect.top)
+            sprite = self.assets["decorations"][decoration]
+            screen_x = world_x - self.camera_x
+            if -sprite.get_width() < screen_x < WIDTH + sprite.get_width():
+                self.screen.blit(sprite, sprite.get_rect(midbottom=(screen_x, support.rect.top)))
         for trap in self.traps:
-            trap.draw(self.screen, self.camera_x, self.elapsed)
+            trap.draw(self.screen, self.camera_x, self.elapsed, self.assets["spike"])
+        for hazard in self.falling_rocks:
+            hazard.draw(self.screen, self.camera_x, self.assets["falling_rock"], self.assets["fall_warning"])
 
         for index, checkpoint in enumerate(self.checkpoints):
             x = checkpoint - self.camera_x
             if -20 < x < WIDTH + 20:
-                pygame.draw.line(self.screen, MUTED, (x, 500), (x, 424), 2)
-                flag_color = ACID if self.checkpoint_index > index else MUTED
-                pygame.draw.polygon(self.screen, flag_color, [(x, 424), (x + 25, 433), (x, 442)])
+                marker = self.assets["checkpoint"]
+                self.screen.blit(marker, marker.get_rect(midbottom=(x, 500)))
+                if self.checkpoint_index > index:
+                    pygame.draw.circle(self.screen, ACID, (x, 438), 4)
 
         goal_x = self.level["exit"] - 20 - self.camera_x
         if -60 < goal_x < WIDTH + 60:
-            pygame.draw.rect(self.screen, ACID, (goal_x, 412, 8, 88))
-            pygame.draw.rect(self.screen, WHITE, (goal_x + 8, 412, 45, 28), 2)
+            key_sprite = self.assets["goal"]
+            self.screen.blit(key_sprite, key_sprite.get_rect(midbottom=(goal_x + 18, 500)))
 
         player_screen = self.player.move(-self.camera_x, 0)
-        pygame.draw.rect(self.screen, (0, 0, 0), player_screen.move(4, 5), border_radius=5)
-        pygame.draw.rect(self.screen, WHITE, player_screen, border_radius=5)
-        pygame.draw.circle(self.screen, INK, (player_screen.centerx + 5, player_screen.y + 13), 3)
-        pygame.draw.rect(self.screen, ACID, (player_screen.x + 5, player_screen.bottom - 8, player_screen.w - 10, 4), border_radius=2)
+        if self.state == "dead":
+            animation_name = "hurt"
+        elif self.state == "playing" and not self.on_ground:
+            animation_name = "jump"
+        elif self.moving:
+            animation_name = "run"
+        else:
+            animation_name = "idle"
+        animation = self.assets["player"][animation_name]
+        frame_index = 0 if animation_name == "idle" else int(self.elapsed * 12) % len(animation)
+        frame = animation[frame_index]
+        if getattr(self, "facing", 1) < 0:
+            frame = pygame.transform.flip(frame, True, False)
+        self.screen.blit(frame, frame.get_rect(midbottom=(player_screen.centerx, player_screen.bottom + 8)))
 
         self.draw_hud()
         if self.state == "title":
@@ -239,6 +322,8 @@ class Game:
             self.draw_overlay("UNSTABLE", "That platform was a little too honest.")
         elif self.state == "won":
             self.draw_overlay("YOU MADE IT", f"Three levels. {self.deaths} failures.", "PRESS R TO RUN IT BACK")
+        elif self.fake_game_over_timer > 0:
+            self.draw_overlay("GAME OVER", "Just kidding. The ground is still lying.", "KEEP MOVING")
 
     def run(self):
         running = True
@@ -267,3 +352,18 @@ class Game:
 if __name__ == "__main__":
     Game().run()
 # This is a sample Python script.
+
+# Press Shift+F10 to execute it or replace it with your code.
+# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+
+
+def print_hi(name):
+    # Use a breakpoint in the code line below to debug your script.
+    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    print_hi('PyCharm')
+
+# See PyCharm help at https://www.jetbrains.com/help/pycharm/
