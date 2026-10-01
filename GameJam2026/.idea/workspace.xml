@@ -1,16 +1,99 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="4c097a17-f82c-4415-aaf9-a076d896c853" name="Changes" comment="" />
+    <list default="true" id="4c097a17-f82c-4415-aaf9-a076d896c853" name="Changes" comment="Initial Commit">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3,
-  "fromUser": false
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;dcarrionp-tm&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/dcarrionp-tm/UnstabilityGame.git&quot;,
+    &quot;accountId&quot;: &quot;d2c7abfb-cfcb-4087-af8d-383fd70a8090&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.4789604467529385" />
+      <entry key="MS500" value="2.5629731198322565" />
+      <entry key="S2" value="6.205605295831112" />
+      <entry key="S5" value="12.64248282975962" />
+      <entry key="S10" value="20.231763914711802" />
+      <entry key="S30" value="42.05616462428594" />
+      <entry key="S60" value="59.728063172923065" />
+      <entry key="M2" value="73.9429801755205" />
+      <entry key="M5" value="85.12476295744075" />
+      <entry key="M10" value="89.40528165048183" />
+      <entry key="M15" value="90.90073001377945" />
+      <entry key="M30" value="92.4319890576701" />
+      <entry key="H1" value="93.21134070963849" />
+      <entry key="H2" value="93.60449933165455" />
+      <entry key="H4" value="93.80195595834488" />
+      <entry key="D1" value="93.96695178597813" />
+      <entry key="W1" value="93.99527782452017" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.3299632810523547" />
+      <entry key="MS500" value="2.5161884705832254" />
+      <entry key="S2" value="6.179660482474726" />
+      <entry key="S5" value="12.620959767969318" />
+      <entry key="S10" value="20.213329020334314" />
+      <entry key="S30" value="42.0361112800642" />
+      <entry key="S60" value="59.70986131200747" />
+      <entry key="M2" value="73.9301338886408" />
+      <entry key="M5" value="85.11836361843929" />
+      <entry key="M10" value="89.40183265644288" />
+      <entry key="M15" value="90.89837198029284" />
+      <entry key="M30" value="92.43077982188872" />
+      <entry key="H1" value="93.21072837029396" />
+      <entry key="H2" value="93.60419121041231" />
+      <entry key="H4" value="93.80180140715696" />
+      <entry key="D1" value="93.9669259590844" />
+      <entry key="W1" value="93.99527413328663" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3K5Qz1UireaogKR4s100ip2fZzQ" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -19,17 +102,28 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "C:/Thomas More/UnstabilityGame/GameJam2026",
+    "nodejs_package_manager_path": "npm",
+    "python.packages.toolwindow.project.migrated.to.right.top.v2": "true",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-024ed6589d45-c2ffad84badb-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-261.23567.174" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-PY-262.10968.92" />
+        <option value="bundled-python-sdk-73a66231627c-5bd6d13a2a75-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-262.10968.92" />
       </set>
     </attachedChunks>
   </component>
@@ -41,11 +135,27 @@
       <option name="presentableId" value="Default" />
       <updated>1790845207538</updated>
       <workItem from="1790845208540" duration="63000" />
+      <workItem from="1790845372555" duration="515000" />
+      <workItem from="1790845951172" duration="339000" />
+      <workItem from="1790846306593" duration="56000" />
     </task>
+    <task id="LOCAL-00001" summary="Initial Commit">
+      <option name="closed" value="true" />
+      <created>1790845392640</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1790845392640</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Initial Commit" />
+    <option name="LAST_COMMIT_MESSAGE" value="Initial Commit" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
