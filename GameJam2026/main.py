@@ -6,6 +6,7 @@ import pygame
 
 from entities import BonusPlatform, FallingRock, Platform, SpikeTrap
 from levels import LEVELS
+from tricks import TrickManager  # UNSTABLE HOOK
 
 
 WIDTH = 960
@@ -169,6 +170,8 @@ class Game:
         self.falling_rocks = [FallingRock(**definition) for definition in self.level.get("falling_rocks", [])]
         self.fake_game_over_timer = 0.0
         self.fake_game_over_triggered = False
+        self.tricks = TrickManager(self.level)  # UNSTABLE HOOK: ghost/vanish platforms join normal collision
+        self.platforms.extend(self.tricks.platforms())
 
     def reset_player(self):
         spawn_x = self.level["spawn"]
@@ -230,6 +233,7 @@ class Game:
         jumped = self._update_player_input(dt, keys)
         landed = self._update_world(dt)
         self._update_hazards(jumped, landed)
+        self.tricks.update(dt, self)  # UNSTABLE HOOK
         self._update_progress()
         self._update_camera()
 
@@ -335,7 +339,7 @@ class Game:
             self.fake_game_over_triggered = True
             self.fake_game_over_timer = 1.1
             self.play_sound("gameover")
-        if self.player.centerx >= self.level["exit"]:
+        if self.player.centerx >= self.level["exit"] and self.tricks.exit_open():  # UNSTABLE HOOK: lucky block guards the exit
             self.advance_level()
 
     def _update_camera(self):
@@ -399,6 +403,7 @@ class Game:
             trap.draw(self.screen, self.camera_x, self.elapsed, self.assets["spike"])
         for hazard in self.falling_rocks:
             hazard.draw(self.screen, self.camera_x, self.assets["falling_rock"], self.assets["fall_warning"])
+        self.tricks.draw(self.screen, self.camera_x, self.assets)  # UNSTABLE HOOK
 
         goal_x = self.level["exit"] - 20 - self.camera_x
         if -60 < goal_x < WIDTH + 60:
@@ -422,6 +427,7 @@ class Game:
         self.screen.blit(frame, frame.get_rect(midbottom=(player_screen.centerx, player_screen.bottom + 8)))
 
         self.draw_hud()
+        self.tricks.draw_banner(self.screen)  # UNSTABLE HOOK
         if self.state == "title":
             self.draw_overlay("FAULTLINE", "THE GROUND IS LYING", "PRESS SPACE TO DROP IN", "A / D or arrows to move   |   Space to jump")
         elif self.state == "dead":
@@ -441,6 +447,11 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    elif pygame.K_1 <= event.key < pygame.K_1 + len(LEVELS):  # UNSTABLE HOOK: dev skip, 1/2/3 jump to a level
+                        self.level_index = event.key - pygame.K_1
+                        self.elapsed = 0.0
+                        self.reset_level()
+                        self.state = "playing"
                     elif event.key == pygame.K_r and self.state == "won":
                         self.deaths = 0
                         self.level_index = 0

@@ -94,4 +94,37 @@ LEVELS = [
             ("headstone", 1370), ("rock", 1540), ("fence", 1705), ("bird", 2050),
         ],
     },
+    {  # UNSTABLE HOOK: level 4, built from tricks.py
+        "name": "NOTHING IS REAL",
+        "banner": "I never lied to you.",
+        "width": 3300,
+        "spawn": 50,
+        "exit": 3200,
+        "platforms": [
+            (0, 500, 600, "solid"), (720, 500, 340, "solid"),
+            (1080, 450, 100, "moving", 1290, 120),
+            (1400, 500, 300, "solid"), (2080, 500, 360, "solid"),
+            (2460, 440, 100, "moving", 2600, 130),
+            (2700, 500, 600, "solid"),
+        ],
+        "traps": [
+            {"x": 260, "count": 3, "kind": "static"},
+            {"x": 2180, "count": 6, "kind": "fake"},   # harmless pop-up that sets off the fake GAME OVER
+        ],
+        "falling_rocks": [],
+        "tricks": [
+            ("popup", 400, 3, 260),           # habit trap: right where an early jump over the spike lands
+            ("fake_shadow", 870, 760),        # shadow, no rock: wastes their reaction time
+            ("rock", 1640, 1400),             # the real one, with a faint shadow that's easy to miss
+            ("vanish", 1790, 395, 110), ("vanish", 1960, 395, 100),   # look solid, vanish
+            ("ghost", 1740, 470, 100), ("ghost", 1890, 455, 100),     # look see-through, hold
+            ("popup", 2730, 3, 2700),         # waiting at the end of the moving platform
+            ("lucky", 3000, 392),             # guards the finish: win, or one last trap
+        ],
+        "fake_game_over": True,
+        "decorations": [
+            ("headstone", 120), ("fence", 540), ("rock", 980), ("bird", 1460),
+            ("headstone", 2120), ("rock", 2380), ("fence", 2760), ("bird", 3250),
+        ],
+    },
 ]
