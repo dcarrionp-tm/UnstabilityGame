@@ -119,6 +119,7 @@ class FallingRock:
         self.y = -36.0
         self.velocity_y = 0.0
         self.landed = False
+        self.fall_sound_played = False
 
     def update(self, dt, player):
         if self.warning_timer is None and player.centerx >= self.trigger_x:

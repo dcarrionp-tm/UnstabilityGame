@@ -1,3 +1,4 @@
+import math
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ CORAL = (255, 105, 91)
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
         pygame.display.set_caption("FAULTLINE // an unstable platformer")
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
@@ -34,6 +36,10 @@ class Game:
         self.font = pygame.font.SysFont("consolas", 18, bold=True)
         self.big_font = pygame.font.SysFont("consolas", 56, bold=True)
         self.small_font = pygame.font.SysFont("consolas", 14)
+        self.music_volume = 0.18
+        self.sound_volume = 0.9
+        self.sounds = self.load_sounds()
+        self.start_music()
         self.state = "title"
         self.deaths = 0
         self.elapsed = 0.0
@@ -111,6 +117,49 @@ class Game:
             },
         }
 
+    def load_sounds(self):
+        sound_root = Path(__file__).resolve().parent / "sounds"
+        sound_map = {
+            "start": sound_root / "start.mp3",
+            "action": sound_root / "action.mp3",
+            "pass": sound_root / "pass.mp3",
+            "leveldone": sound_root / "leveldone.mp3",
+            "gameover": sound_root / "gameover.mp3",
+            "fail": sound_root / "fail.mp3",
+            "fall": sound_root / "fall.mp3",
+        }
+        loaded = {}
+        for key, path in sound_map.items():
+            if path.exists():
+                sound = pygame.mixer.Sound(str(path))
+                sound.set_volume(2.6 if key == "fall" else self.sound_volume)
+                loaded[key] = sound
+        return loaded
+
+    def start_music(self):
+        music_path = Path(__file__).resolve().parent / "sounds" / "play.mp3"
+        if music_path.exists():
+            pygame.mixer.music.load(str(music_path))
+            pygame.mixer.music.set_volume(self.music_volume)
+            pygame.mixer.music.play(-1)
+
+    def play_sound(self, key, maxtime=None):
+        if not pygame.mixer.get_init():
+            return
+        sound = self.sounds.get(key)
+        if sound is None:
+            return
+        if key == "fall":
+            sound.set_volume(2.6)
+        elif key == "gameover":
+            sound.set_volume(1.2)
+        else:
+            sound.set_volume(self.sound_volume)
+        if maxtime is not None:
+            sound.play(maxtime=maxtime)
+        else:
+            sound.play()
+
     def load_level(self):
         self.level = LEVELS[self.level_index]
         self.world_width = self.level["width"]
@@ -140,7 +189,9 @@ class Game:
     def advance_level(self):
         if self.level_index + 1 == len(LEVELS):
             self.state = "won"
+            self.play_sound("leveldone")
             return
+        self.play_sound("pass")
         self.level_index += 1
         self.elapsed = 0.0
         self.load_level()
@@ -151,12 +202,14 @@ class Game:
             self.deaths += 1
             self.state = "dead"
             self.state_timer = 0.55
+            self.play_sound("fail")
 
     def update(self, dt):
         keys = pygame.key.get_pressed()
         if self.state == "title":
             if keys[pygame.K_SPACE] or keys[pygame.K_RETURN]:
                 self.state = "playing"
+                self.play_sound("start")
             return
         if self.state == "dead":
             self.state_timer -= dt
@@ -203,6 +256,7 @@ class Game:
             self.on_ground = False
             self.jump_buffer_timer = 0.0
             self.coyote_timer = 0.0
+            self.play_sound("action")
         self.jump_was_held = jump_held
         return jumped
 
@@ -213,6 +267,10 @@ class Game:
             platform.update(dt)
         for hazard in self.falling_rocks:
             hazard.update(dt, self.player)
+            if hazard.warning_timer is not None and hazard.warning_timer <= 0 and not getattr(hazard, "fall_sound_played", False):
+                hazard.fall_sound_played = True
+                fall_duration_ms = int(1000 * math.sqrt((2 * (500 - 30 - (-36.0))) / 1150.0))
+                self.play_sound("fall", maxtime=max(150, fall_duration_ms))
         previous_bottom = self.player.bottom
         self.velocity_y = min(MAX_FALL_SPEED, self.velocity_y + GRAVITY * dt)
         self.player.y += round(self.velocity_y * dt)
@@ -272,6 +330,7 @@ class Game:
         if fake_game_over_x is not None and not self.fake_game_over_triggered and self.player.centerx >= fake_game_over_x:
             self.fake_game_over_triggered = True
             self.fake_game_over_timer = 1.1
+            self.play_sound("gameover")
         if self.player.centerx >= self.level["exit"]:
             self.advance_level()
 
