@@ -1,6 +1,6 @@
 LEVELS = [
     {
-        "name": "THE FRIENDLY FLOOR",
+        "name": "Friendly Beginings",
         "width": 2220,
         "spawn": 50,
         "exit": 2160,
@@ -32,7 +32,7 @@ LEVELS = [
         ],
     },
     {
-        "name": "NOTHING IS STATIONARY",
+        "name": "Give Up",
         "width": 2100,
         "spawn": 50,
         "exit": 2000,
@@ -71,39 +71,73 @@ LEVELS = [
         ],
     },
     {
-        "name": "THE EXIT IS A LIAR",
+        "name": "Stop Trying",
+
         "width": 2200,
+
         "spawn": 50,
+
         "exit": 2100,
+
         "platforms": [
+
             (0, 500, 260, "solid"), (355, 500, 180, "solid"),
+
             (700, 500, 180, "solid"), (1030, 500, 190, "solid"),
+
             (1370, 500, 185, "solid"), (1705, 500, 495, "solid"),
+
             (370, 405, 90, "moving", 550, 115),
+
             (620, 500, 155, "fake"), (820, 395, 105, "crumble"),
+
             (1060, 405, 95, "moving", 1260, 140),
+
             (1420, 390, 95, "moving", 1630, 125),
+
             (1780, 415, 105, "fake"),
+
         ],
+
         "traps": [
+
             {"x": 390, "count": 4, "kind": "on_jump"},
+
             {"x": 1060, "count": 5, "kind": "hidden", "trigger_x": 980},
+
             {"x": 1740, "count": 4, "kind": "static"},
+
         ],
+
         "bonus_platforms": [
-            {"x": 275, "y": 430, "outcome": "random"},
-            {"x": 590, "y": 430, "outcome": "random"},
-            {"x": 925, "y": 430, "outcome": "random"},
-            {"x": 1260, "y": 430, "outcome": "random"},
+
+            {"x": 275, "y": 430, "outcome": "safe"},
+
+            {"x": 590, "y": 430, "outcome": "spikes"},
+
+            {"x": 925, "y": 430, "outcome": "false"},
+
+            {"x": 1260, "y": 430, "outcome": "temporary"},
+
         ],
+
         "falling_rocks": [
+
             {"x": 775, "trigger_x": 680}, {"x": 1150, "trigger_x": 1055},
+
             {"x": 1880, "trigger_x": 1785},
+
         ],
+
         "fake_game_over": 875,
+
         "decorations": [
+
             ("headstone", 170), ("rock", 520), ("bird", 760), ("fence", 1030),
+
             ("headstone", 1370), ("rock", 1540), ("fence", 1705), ("bird", 2050),
+
         ],
+
     },
 ]

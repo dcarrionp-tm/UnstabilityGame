@@ -31,7 +31,9 @@ class Game:
         pygame.init()
         pygame.mixer.init()
         pygame.display.set_caption("FAULTLINE // an unstable platformer")
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.fullscreen = False
+        self.display = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.screen = pygame.Surface((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
         self.assets = self.load_assets()
         self.font = pygame.font.SysFont("consolas", 18, bold=True)
@@ -49,6 +51,13 @@ class Game:
         self.shake_strength = 0.0
         self.load_level()
         self.reset_player()
+
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.display = pygame.display.set_mode((WIDTH, HEIGHT))
 
     def load_assets(self):
         asset_root = Path(__file__).resolve().parent / "Assets"
@@ -506,6 +515,8 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
+                        self.toggle_fullscreen()
                     elif event.key == pygame.K_r and self.state == "won":
                         self.deaths = 0
                         self.level_index = 0
@@ -514,6 +525,7 @@ class Game:
                         self.state = "title"
             self.update(dt)
             self.draw()
+            pygame.transform.smoothscale(self.screen, self.display.get_size(), self.display)
             pygame.display.flip()
         pygame.quit()
         sys.exit()
