@@ -33,22 +33,29 @@ LEVELS = [
     },
     {
         "name": "NOTHING IS STATIONARY",
-        "width": 2050,
+        "width": 2100,
         "spawn": 50,
-        "exit": 1950,
+        "exit": 2000,
         "platforms": [
             (0, 500, 275, "solid"), (350, 500, 205, "solid"),
             (785, 500, 205, "solid"), (1080, 500, 220, "solid"),
             (1395, 500, 250, "solid"), (1710, 500, 340, "solid"),
             (360, 410, 95, "moving", 625, 130),
-            (620, 500, 165, "fake"), (865, 405, 100, "moving", 1035, 105),
-            (1140, 410, 95, "crumble"), (1465, 395, 100, "moving", 1650, 125),
+            (620, 500, 165, "fake"), (865, 405, 110, "moving", 1035, 105),
+            (1140, 410, 100, "crumble"), (1465, 395, 105, "moving", 1650, 125),
+        ],
+        "bonus_platforms": [
+            {"x": 260, "y": 430, "outcome": "safe"},
+            {"x": 550, "y": 430, "outcome": "random"},
+            {"x": 930, "y": 430, "outcome": "safe"},
+            {"x": 1470, "y": 420, "outcome": "random"},
         ],
         "traps": [
             {"x": 805, "count": 5, "kind": "hidden", "trigger_x": 740},
             {"x": 1450, "count": 4, "kind": "on_land"},
         ],
         "falling_rocks": [
+            {"x": 650, "trigger_x": 540, "warning_duration": 0.8, "fake": True},
             {"x": 875, "trigger_x": 780}, {"x": 1220, "trigger_x": 1125},
             {"x": 1840, "trigger_x": 1745},
         ],
@@ -56,6 +63,11 @@ LEVELS = [
         "decorations": [
             ("bird", 135), ("rock", 360), ("headstone", 480), ("fence", 790),
             ("rock", 1080), ("headstone", 1395), ("bird", 1850), ("rock", 1990),
+        ],
+        "helicopters": [
+            {"x": 320, "y": 110, "speed": 0.55, "amplitude": 20, "drift": 40, "phase": 0.5, "scale": 0.8},
+            {"x": 920, "y": 150, "speed": 0.46, "amplitude": 24, "drift": 50, "phase": 1.5, "scale": 1.0},
+            {"x": 1500, "y": 130, "speed": 0.52, "amplitude": 18, "drift": 45, "phase": 2.7, "scale": 0.9},
         ],
     },
     {

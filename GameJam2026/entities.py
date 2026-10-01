@@ -112,18 +112,21 @@ class BonusPlatform:
 
 
 class FallingRock:
-    def __init__(self, x, trigger_x, warning_duration=0.75, fall_acceleration=1150, max_fall_speed=760):
+    def __init__(self, x, trigger_x, warning_duration=0.75, fall_acceleration=1150, max_fall_speed=760, fake=False, on_fire=None):
         self.x = x
         self.trigger_x = trigger_x
         self.warning_duration = warning_duration
         self.fall_acceleration = fall_acceleration
         self.max_fall_speed = max_fall_speed
+        self.fake = fake
+        self.on_fire = random.choice([True, False]) if on_fire is None else on_fire
         self.warning_timer = None
         self.y = -36.0
         self.velocity_y = 0.0
         self.landed = False
         self.landed_this_frame = False
         self.fall_sound_played = False
+        self.smoke_particles = []
 
     def update(self, dt, player):
         self.landed_this_frame = False
@@ -143,14 +146,76 @@ class FallingRock:
             self.landed = True
             self.landed_this_frame = True
 
+        smoke_amount = max(1, int(5 * dt * 60))
+        for _ in range(smoke_amount):
+            self.smoke_particles.append({
+                "x": self.x + random.uniform(-12, 12),
+                "y": self.y + random.uniform(0, 18),
+                "size": random.uniform(6, 14),
+                "life": random.uniform(0.4, 0.9),
+                "max_life": random.uniform(0.4, 0.9),
+                "velocity_y": random.uniform(-18, 2),
+                "velocity_x": random.uniform(-12, 12),
+            })
+
+        for particle in self.smoke_particles:
+            particle["life"] -= dt
+            particle["x"] += particle["velocity_x"] * dt
+            particle["y"] += particle["velocity_y"] * dt
+            particle["velocity_y"] -= 10 * dt
+            particle["size"] += 3 * dt
+
+        self.smoke_particles = [p for p in self.smoke_particles if p["life"] > 0]
+
     def draw(self, surface, camera_x, rock_sprite, warning_sprite):
         if self.warning_timer is None:
             return
         screen_x = self.x - camera_x
         if self.warning_timer > 0:
-            surface.blit(warning_sprite, warning_sprite.get_rect(midbottom=(screen_x, GROUND_Y - 8)))
+            larger_warning = pygame.transform.smoothscale(warning_sprite, (warning_sprite.get_width() + 12, warning_sprite.get_height() + 12))
+            surface.blit(larger_warning, larger_warning.get_rect(midbottom=(screen_x, GROUND_Y - 8)))
+
+            rock_preview = pygame.transform.smoothscale(rock_sprite, (rock_sprite.get_width() + 18, rock_sprite.get_height() + 18))
+            preview_alpha = max(70, int(255 * (1.0 - self.warning_timer / max(self.warning_duration, 0.05))))
+            rock_preview.set_alpha(preview_alpha)
+            surface.blit(rock_preview, rock_preview.get_rect(midtop=(screen_x, 30)))
+
+            if self.on_fire:
+                flame = pygame.Surface((rock_preview.get_width() + 24, rock_preview.get_height() + 40), pygame.SRCALPHA)
+                for offset, color, size in [
+                    (0, (255, 178, 65, 180), (rock_preview.get_width() * 0.54, 26)),
+                    (6, (255, 98, 0, 190), (rock_preview.get_width() * 0.42, 22)),
+                    (12, (255, 225, 120, 170), (rock_preview.get_width() * 0.28, 16)),
+                ]:
+                    pygame.draw.ellipse(flame, color, (rock_preview.get_width() * 0.22, rock_preview.get_height() + 8 + offset, *size))
+                surface.blit(flame, flame.get_rect(midtop=(screen_x, 50)))
         else:
-            surface.blit(rock_sprite, rock_sprite.get_rect(midtop=(screen_x, round(self.y))))
+            larger_rock = pygame.transform.smoothscale(rock_sprite, (rock_sprite.get_width() + 18, rock_sprite.get_height() + 18))
+
+            if self.on_fire:
+                flame = pygame.Surface((larger_rock.get_width() + 26, larger_rock.get_height() + 44), pygame.SRCALPHA)
+                for color, rect in [
+                    ((255, 220, 100, 200), (8, 8, larger_rock.get_width() * 0.58, 18)),
+                    ((255, 120, 0, 220), (12, 18, larger_rock.get_width() * 0.46, 22)),
+                    ((255, 70, 0, 180), (18, 30, larger_rock.get_width() * 0.32, 16)),
+                ]:
+                    pygame.draw.ellipse(flame, color, rect)
+                flame_rect = flame.get_rect(midtop=(screen_x, round(self.y) - 26))
+                surface.blit(flame, flame_rect)
+
+                for particle in self.smoke_particles:
+                    alpha = int(180 * (particle["life"] / particle["max_life"]))
+                    smoke = pygame.Surface((max(4, particle["size"]), max(4, particle["size"])), pygame.SRCALPHA)
+                    pygame.draw.ellipse(smoke, (180, 180, 180), smoke.get_rect())
+                    smoke.set_alpha(alpha)
+                    smoke_rect = smoke.get_rect(center=(particle["x"] - camera_x, particle["y"]))
+                    surface.blit(smoke, smoke_rect)
+
+                fire_rock = larger_rock.copy()
+                fire_rock.fill((255, 120, 0), special_flags=pygame.BLEND_RGB_ADD)
+                surface.blit(fire_rock, fire_rock.get_rect(midtop=(screen_x, round(self.y))))
+            else:
+                surface.blit(larger_rock, larger_rock.get_rect(midtop=(screen_x, round(self.y))))
 
     def collides(self, player):
         if self.warning_timer is None or self.warning_timer > 0 or (self.landed and not self.landed_this_frame):

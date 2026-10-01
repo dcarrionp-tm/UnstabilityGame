@@ -1,4 +1,5 @@
 import math
+import random
 import sys
 from pathlib import Path
 
@@ -44,6 +45,8 @@ class Game:
         self.deaths = 0
         self.elapsed = 0.0
         self.level_index = 0
+        self.shake_duration = 0.0
+        self.shake_strength = 0.0
         self.load_level()
         self.reset_player()
 
@@ -170,6 +173,15 @@ class Game:
         self.fake_game_over_timer = 0.0
         self.fake_game_over_triggered = False
 
+    def trigger_fake_prank(self):
+        if self.fake_game_over_triggered:
+            return
+        self.fake_game_over_triggered = True
+        self.fake_game_over_timer = 1.1
+        self.shake_duration = 0.28
+        self.shake_strength = 14.0
+        self.play_sound("gameover")
+
     def reset_player(self):
         spawn_x = self.level["spawn"]
         self.player = pygame.Rect(spawn_x, 500 - 48, 28, 42)
@@ -205,6 +217,12 @@ class Game:
             self.play_sound("fail")
 
     def update(self, dt):
+        if self.shake_duration > 0:
+            self.shake_duration = max(0.0, self.shake_duration - dt)
+            self.shake_strength = max(0.0, self.shake_strength * 0.82)
+        else:
+            self.shake_strength = 0.0
+
         keys = pygame.key.get_pressed()
         if self.state == "title":
             if keys[pygame.K_SPACE] or keys[pygame.K_RETURN]:
@@ -322,6 +340,9 @@ class Game:
                 self.die()
         for hazard in self.falling_rocks:
             if hazard.collides(self.player):
+                if getattr(hazard, "fake", False):
+                    self.trigger_fake_prank()
+                    continue
                 self.die()
         if self.player.top > HEIGHT + 50:
             self.die()
@@ -332,9 +353,7 @@ class Game:
             for trap in self.traps
         )
         if self.level.get("fake_game_over") and fake_spikes_popped and not self.fake_game_over_triggered:
-            self.fake_game_over_triggered = True
-            self.fake_game_over_timer = 1.1
-            self.play_sound("gameover")
+            self.trigger_fake_prank()
         if self.player.centerx >= self.level["exit"]:
             self.advance_level()
 
@@ -350,6 +369,33 @@ class Game:
             self.screen.blit(image, (-offset, vertical_offset))
             self.screen.blit(image, (WIDTH - offset, vertical_offset))
 
+    def draw_helicopter(self, x, y, scale=1.0):
+        body_color = (245, 240, 220)
+        dark = (70, 82, 92)
+        accent = (255, 126, 74)
+        rotor_len = 58 * scale
+        rotor_height = 8 * scale
+        body_w = 56 * scale
+        body_h = 20 * scale
+
+        pygame.draw.line(self.screen, dark, (x - rotor_len, y), (x + rotor_len, y), max(2, int(3 * scale)))
+        pygame.draw.ellipse(self.screen, dark, (x - rotor_len, y - 4 * scale, rotor_len * 2, 8 * scale))
+        pygame.draw.ellipse(self.screen, body_color, (x - body_w / 2, y - body_h / 2, body_w, body_h))
+        pygame.draw.rect(self.screen, accent, (x + body_w * 0.3, y - 8 * scale, 18 * scale, 10 * scale))
+        pygame.draw.line(self.screen, dark, (x + body_w / 2, y), (x + body_w / 2 + 26 * scale, y + 22 * scale), max(2, int(2 * scale)))
+        pygame.draw.line(self.screen, dark, (x - body_w / 2 + 6 * scale, y + body_h / 2), (x - 16 * scale, y + 18 * scale), max(2, int(2 * scale)))
+        pygame.draw.line(self.screen, dark, (x + body_w / 2 - 6 * scale, y + body_h / 2), (x + 16 * scale, y + 18 * scale), max(2, int(2 * scale)))
+
+    def draw_helicopters(self):
+        for config in self.level.get("helicopters", []):
+            phase = self.elapsed * config.get("speed", 0.5) + config.get("phase", 0.0)
+            drift = math.sin(phase) * config.get("drift", 30)
+            lift = math.sin(phase * 1.7) * config.get("amplitude", 18)
+            x = config["x"] - self.camera_x + drift
+            y = config["y"] + lift
+            if -120 < x < WIDTH + 120:
+                self.draw_helicopter(x, y, config.get("scale", 1.0))
+
     def draw_hud(self):
         self.screen.blit(self.font.render(f"FAULTLINE  /  {self.level_index + 1:02d} {self.level['name']}", True, WHITE), (24, 20))
         death_text = self.font.render(f"FAILURES {self.deaths:02d}", True, CORAL)
@@ -362,6 +408,13 @@ class Game:
         shade = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         shade.fill((8, 12, 17, 190))
         self.screen.blit(shade, (0, 0))
+
+        if self.fake_game_over_timer > 0 and self.state != "won":
+            flash = max(0, min(255, int(255 * (self.fake_game_over_timer / 1.1))))
+            flash_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            flash_overlay.fill((255, 140, 80, flash))
+            self.screen.blit(flash_overlay, (0, 0))
+
         title_surface = self.big_font.render(title, True, CORAL if self.state == "dead" else ACID)
         self.screen.blit(title_surface, title_surface.get_rect(center=(WIDTH // 2, 235)))
         subtitle_surface = self.font.render(subtitle, True, WHITE)
@@ -373,8 +426,18 @@ class Game:
             controls_surface = self.small_font.render(controls, True, MUTED)
             self.screen.blit(controls_surface, controls_surface.get_rect(center=(WIDTH // 2, 404)))
 
+    def apply_screen_shake(self):
+        if self.shake_strength <= 0:
+            return
+        shake_x = random.uniform(-self.shake_strength, self.shake_strength)
+        shake_y = random.uniform(-self.shake_strength, self.shake_strength)
+        shaken = self.screen.copy()
+        self.screen.fill(INK)
+        self.screen.blit(shaken, (shake_x, shake_y))
+
     def draw(self):
         self.draw_background()
+        self.draw_helicopters()
         for platform in self.platforms:
             platform.draw(self.screen, self.camera_x, self.assets["platforms"])
         for platform in self.bonus_platforms:
@@ -429,7 +492,9 @@ class Game:
         elif self.state == "won":
             self.draw_overlay("YOU MADE IT", f"Three levels. {self.deaths} failures.", "PRESS R TO RUN IT BACK")
         elif self.fake_game_over_timer > 0:
-            self.draw_overlay("GAME OVER", "Just kidding. The ground is still lying.", "KEEP MOVING")
+            self.draw_overlay("JUST KIDDING", "The ground is still lying.", "KEEP MOVING")
+
+        self.apply_screen_shake()
 
     def run(self):
         running = True
