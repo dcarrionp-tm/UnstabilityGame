@@ -22,12 +22,12 @@ class Platform:
         self.previous_x = x
 
     def update(self, dt):
-        self.previous_x = self.rect.x
         if self.kind == "crumble" and self.timer > 0:
             self.timer += dt
             if self.timer >= 0.72:
                 self.gone = True
         if self.kind == "moving" and self.end_x is not None:
+            self.previous_x = self.rect.x
             self.rect.x += round(self.speed * self.direction * dt)
             if self.rect.x >= self.end_x:
                 self.rect.x = self.end_x

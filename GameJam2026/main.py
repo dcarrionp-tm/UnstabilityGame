@@ -10,13 +10,17 @@ WIDTH = 960
 HEIGHT = 600
 FPS = 60
 MOVE_SPEED = 245
+JUMP_VELOCITY = -570
+GRAVITY = 1450
+MAX_FALL_SPEED = 850
+JUMP_BUFFER_TIME = 0.12
+COYOTE_TIME = 0.08
 
 INK = (17, 22, 30)
 WHITE = (237, 242, 232)
 MUTED = (133, 151, 157)
 ACID = (220, 246, 94)
 CORAL = (255, 105, 91)
-TEAL = (77, 206, 185)
 
 
 class Game:
@@ -33,7 +37,6 @@ class Game:
         self.elapsed = 0.0
         self.level_index = 0
         self.checkpoint_index = 0
-        self.camera_x = 0
         self.load_level()
         self.reset_player()
 
@@ -89,32 +92,49 @@ class Game:
         if self.state == "won":
             return
 
+        self._update_playing(dt, keys)
+
+    def _update_playing(self, dt, keys):
         self.elapsed += dt
+        self._move_horizontally(dt, keys)
+        jumped = self._handle_jump(dt, keys)
+        landed = self._move_vertically(dt)
+        self._update_traps(jumped, landed)
+        if self.state != "playing":
+            return
+        self._update_progress()
+        self._update_camera()
+
+    def _move_horizontally(self, dt, keys):
         move = int(keys[pygame.K_RIGHT] or keys[pygame.K_d]) - int(keys[pygame.K_LEFT] or keys[pygame.K_a])
         self.player.x += round(move * MOVE_SPEED * dt)
         self.player.x = max(0, min(self.world_width - self.player.width, self.player.x))
+
+    def _handle_jump(self, dt, keys):
         jump_held = keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]
         jump_pressed = jump_held and not self.jump_was_held
         if jump_pressed:
-            self.jump_buffer_timer = 0.12
+            self.jump_buffer_timer = JUMP_BUFFER_TIME
         else:
             self.jump_buffer_timer = max(0.0, self.jump_buffer_timer - dt)
         if self.on_ground:
-            self.coyote_timer = 0.08
+            self.coyote_timer = COYOTE_TIME
         else:
             self.coyote_timer = max(0.0, self.coyote_timer - dt)
         jumped = self.jump_buffer_timer > 0 and (self.on_ground or self.coyote_timer > 0)
         if jumped:
-            self.velocity_y = -570
+            self.velocity_y = JUMP_VELOCITY
             self.on_ground = False
             self.jump_buffer_timer = 0.0
             self.coyote_timer = 0.0
         self.jump_was_held = jump_held
+        return jumped
 
+    def _move_vertically(self, dt):
         for platform in self.platforms:
             platform.update(dt)
         previous_bottom = self.player.bottom
-        self.velocity_y = min(850, self.velocity_y + 1450 * dt)
+        self.velocity_y = min(MAX_FALL_SPEED, self.velocity_y + GRAVITY * dt)
         self.player.y += round(self.velocity_y * dt)
         self.on_ground = False
         landed = False
@@ -130,7 +150,9 @@ class Game:
                     platform.timer = 0.001
                 if platform.kind == "moving":
                     self.player.x += platform.rect.x - platform.previous_x
+        return landed
 
+    def _update_traps(self, jumped, landed):
         for trap in self.traps:
             trap.update(self.elapsed, self.player, jumped, landed)
             if trap.collides(self.player, self.elapsed):
@@ -138,10 +160,13 @@ class Game:
         if self.player.top > HEIGHT + 50:
             self.die()
 
+    def _update_progress(self):
         while self.checkpoint_index < len(self.checkpoints) and self.player.centerx > self.checkpoints[self.checkpoint_index]:
             self.checkpoint_index += 1
         if self.player.centerx >= self.level["exit"]:
             self.advance_level()
+
+    def _update_camera(self):
         target_camera = self.player.centerx - WIDTH * 0.38
         self.camera_x = max(0, min(self.world_width - WIDTH, int(target_camera)))
 
@@ -242,18 +267,3 @@ class Game:
 if __name__ == "__main__":
     Game().run()
 # This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
